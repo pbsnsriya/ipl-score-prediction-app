@@ -2,10 +2,13 @@ from flask import Flask, render_template, request, jsonify
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
-import tensorflow as tf
-from tensorflow import keras
 import os
 import logging
+
+try:
+    import tflite_runtime.interpreter as tflite
+except ImportError:
+    import tensorflow.lite as tflite
 
 # Set up logging for better debugging
 logging.basicConfig(level=logging.DEBUG)
@@ -14,7 +17,7 @@ logging.basicConfig(level=logging.DEBUG)
 app = Flask(__name__)
 
 # Set file paths relative to the current working directory
-model_path = os.path.join(os.getcwd(), 'model.h5')
+model_path = os.path.join(os.getcwd(), 'model.tflite')
 data_path = os.path.join(os.getcwd(), 'ipl_data.csv')
 
 # Load the dataset and preprocess
@@ -46,9 +49,12 @@ X['bowler'] = bowler_encoder.fit_transform(X['bowler'])
 scaler = MinMaxScaler()
 X_scaled = scaler.fit_transform(X)
 
-# Load the pre-trained model
+# Load the TFLite model
 try:
-    model = keras.models.load_model(model_path)
+    interpreter = tflite.Interpreter(model_path=model_path)
+    interpreter.allocate_tensors()
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
 except Exception as e:
     logging.error(f"Error loading the model: {e}")
     raise
@@ -59,8 +65,8 @@ def index():
         return render_template('index.html', venues=list(ipl['venue'].unique()),
                                batting_teams=list(ipl['bat_team'].unique()),
                                bowling_teams=list(ipl['bowl_team'].unique()),
-                               batsmen=list(ipl['batsman'].unique()),
-                               bowlers=list(ipl['bowler'].unique()))
+                                batsmen=list(ipl['batsman'].unique()),
+                                bowlers=list(ipl['bowler'].unique()))
     except Exception as e:
         logging.error(f"Error rendering the index page: {e}")
         return "An error occurred while loading the page."
@@ -77,8 +83,14 @@ def predict():
             bowler_encoder.transform([data['bowler']])[0]
         ]
         input_data = scaler.transform([input_data])
-        prediction = model.predict(input_data)
-        predicted_score = int(prediction[0, 0])
+        
+        # Prepare input for TFLite
+        input_data = np.array(input_data, dtype=np.float32)
+        interpreter.set_tensor(input_details[0]['index'], input_data)
+        interpreter.invoke()
+        output_data = interpreter.get_tensor(output_details[0]['index'])
+        
+        predicted_score = int(output_data[0][0])
         return jsonify({'predicted_score': predicted_score})
     except Exception as e:
         logging.error(f"Error during prediction: {e}")
