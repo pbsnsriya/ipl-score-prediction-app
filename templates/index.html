@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPL Score Predictor</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        form {
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            max-width: 500px;
+            margin: auto;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            outline: none;
+            font-size: 1rem;
+        }
+
+        button {
+            background-color: #28a745;
+            color: #ffffff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        h2 {
+            text-align: center;
+            color: #28a745;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>IPL Score Predictor</h1>
+    <form id="predict-form">
+        <label for="venue">Select Venue:</label>
+        <select id="venue" name="venue"></select><br><br>
+
+        <label for="batting-team">Select Batting Team:</label>
+        <select id="batting-team" name="batting_team"></select><br><br>
+
+        <label for="bowling-team">Select Bowling Team:</label>
+        <select id="bowling-team" name="bowling_team"></select><br><br>
+
+        <label for="striker">Select Striker:</label>
+        <select id="striker" name="striker"></select><br><br>
+
+        <label for="bowler">Select Bowler:</label>
+        <select id="bowler" name="bowler"></select><br><br>
+
+        <button type="button" onclick="predictScore()">Predict Score</button>
+    </form>
+
+    <h2 id="result"></h2>
+
+    <script>
+        // Populate dropdowns dynamically
+        const venues = {{ venues | tojson }};
+        const battingTeams = {{ batting_teams | tojson }};
+        const bowlingTeams = {{ bowling_teams | tojson }};
+        const batsmen = {{ batsmen | tojson }};
+        const bowlers = {{ bowlers | tojson }};
+
+        const populateDropdown = (id, options) => {
+            const dropdown = document.getElementById(id);
+            options.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option;
+                opt.innerHTML = option;
+                dropdown.appendChild(opt);
+            });
+        };
+
+        populateDropdown('venue', venues);
+        populateDropdown('batting-team', battingTeams);
+        populateDropdown('bowling-team', bowlingTeams);
+        populateDropdown('striker', batsmen);
+        populateDropdown('bowler', bowlers);
+
+        // Predict score
+        function predictScore() {
+            const data = {
+                venue: document.getElementById('venue').value,
+                batting_team: document.getElementById('batting-team').value,
+                bowling_team: document.getElementById('bowling-team').value,
+                striker: document.getElementById('striker').value,
+                bowler: document.getElementById('bowler').value
+            };
+
+            axios.post('/predict', data)
+                .then(response => {
+                    if (response.data.error) {
+                        document.getElementById('result').innerText = response.data.error;
+                    } else {
+                        document.getElementById('result').innerText = `Predicted Score: ${response.data.predicted_score}`;
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    document.getElementById('result').innerText = 'Error predicting score.';
+                });
+        }
+    </script>
+</body>
+</html>
